@@ -19,4 +19,8 @@ dependencies:
   - tk=8.6.13=h892fb3f_3
   - tzdata=2025c=h8577fbf_0
   - wheel=0.45.1=pyhd8ed1ab_1
+  - numpy
+  - pillow
+  - pip:
+    - picamera2
 prefix: /Users/daniel/anaconda3/envs/SkyPi
