@@ -2,21 +2,26 @@
 from picamera2 import Picamera2
 import numpy as np
 
-def unpackCsi12(packed, width, height):
-    # CSI-2 packed 12-bit: 2 pixels in 3 bytes
-    packed = packed.flatten().astype(np.uint16)
-    byte0 = packed[0::3]
-    byte1 = packed[1::3]
-    byte2 = packed[2::3]
+def unpackCsi12(packed, width, height, stride):
+    # CSI-2 packed 12-bit: 2 pixels per 3 bytes, accounting for row stride
+    bytesPerRow = (width * 3) // 2
+    unpacked = np.zeros((height, width), dtype=np.uint16)
 
-    pixel0 = byte0 | ((byte2 & 0x0F) << 8)
-    pixel1 = byte1 | ((byte2 & 0xF0) << 4)
+    for row in range(height):
+        rowStart = row * stride
+        rowData = packed[rowStart:rowStart + bytesPerRow].astype(np.uint16)
 
-    unpacked = np.empty(len(byte0) * 2, dtype=np.uint16)
-    unpacked[0::2] = pixel0
-    unpacked[1::2] = pixel1
+        byte0 = rowData[0::3]
+        byte1 = rowData[1::3]
+        byte2 = rowData[2::3]
 
-    return unpacked[:width * height].reshape(height, width)
+        pixel0 = byte0 | ((byte2 & 0x0F) << 8)
+        pixel1 = byte1 | ((byte2 & 0xF0) << 4)
+
+        unpacked[row, 0::2] = pixel0
+        unpacked[row, 1::2] = pixel1
+
+    return unpacked
 
 def captureRaw(exposureTime=10000, analogueGain=1.0, focus=None, sharpness=None):
     picam2 = Picamera2()
@@ -44,6 +49,7 @@ def captureRaw(exposureTime=10000, analogueGain=1.0, focus=None, sharpness=None)
         rawConfig = picam2.camera_configuration()["raw"]
         width = rawConfig["size"][0]
         height = rawConfig["size"][1]
-        raw = unpackCsi12(raw, width, height)
+        stride = rawConfig["stride"]
+        raw = unpackCsi12(raw.flatten(), width, height, stride)
 
     return raw
