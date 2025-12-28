@@ -13,6 +13,9 @@ def main():
     parser.add_argument("-f", "--focus", type=float, default=None, help="Lens position / focus")
     parser.add_argument("-s", "--sharpness", type=float, default=None, help="Sharpness")
     parser.add_argument("-o", "--output-dir", type=str, default=".", help="Output directory for .npy file")
+    parser.add_argument("-b", "--bayer", type=str, default="BGGR",
+                        choices=["BGGR", "RGGB", "GBRG", "GRBG"],
+                        help="Bayer pattern for demosaicing")
     args = parser.parse_args()
 
     rawData = capture.captureRaw(
@@ -27,10 +30,9 @@ def main():
     np.save(filename, rawData)
     print(f"Saved: {filename}")
 
-    rgb = demosaic(rawData)
-    rgbNormalized = rgb.astype(np.float32) / 4095.0
+    rgb = demosaic(rawData, bayerPattern=args.bayer)
 
-    plt.imshow(rgbNormalized)
+    plt.imshow(rgb)
     plt.title(f"Capture: {timestamp}")
     plt.axis("off")
     plt.show()
