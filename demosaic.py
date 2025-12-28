@@ -3,8 +3,9 @@ import numpy as np
 def demosaic(raw, blackLevel=0, whiteBalance=None, colorMatrix=None, gamma=1.0):
     if raw.ndim != 2:
         raise ValueError("Raw input must be 2D array")
+
     if raw.dtype != np.uint16:
-        raise ValueError("Raw input must be uint16")
+        raw = raw.astype(np.uint16)
 
     height, width = raw.shape
 
