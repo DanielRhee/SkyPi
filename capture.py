@@ -2,7 +2,7 @@
 from picamera2 import Picamera2
 import numpy as np
 
-def captureRaw(exposureTime=10000, analogueGain=1.0, digitalGain=1.0, focus=None, sharpness=None):
+def captureRaw(exposureTime=10000, analogueGain=1.0, focus=None, sharpness=None):
     picam2 = Picamera2()
     config = picam2.create_still_configuration(raw={})
     picam2.configure(config)
@@ -10,7 +10,6 @@ def captureRaw(exposureTime=10000, analogueGain=1.0, digitalGain=1.0, focus=None
     controls = {
         "ExposureTime": exposureTime,
         "AnalogueGain": analogueGain,
-        "DigitalGain": digitalGain,
     }
 
     if focus is not None:

@@ -10,7 +10,6 @@ def main():
     parser = argparse.ArgumentParser(description="Capture image, save as .npy, and display")
     parser.add_argument("-e", "--exposure", type=int, default=10000, help="Exposure time in microseconds")
     parser.add_argument("-a", "--analogue-gain", type=float, default=1.0, help="Analogue gain")
-    parser.add_argument("-d", "--digital-gain", type=float, default=1.0, help="Digital gain")
     parser.add_argument("-f", "--focus", type=float, default=None, help="Lens position / focus")
     parser.add_argument("-s", "--sharpness", type=float, default=None, help="Sharpness")
     parser.add_argument("-o", "--output-dir", type=str, default=".", help="Output directory for .npy file")
@@ -19,7 +18,6 @@ def main():
     rawData = capture.captureRaw(
         exposureTime=args.exposure,
         analogueGain=args.analogue_gain,
-        digitalGain=args.digital_gain,
         focus=args.focus,
         sharpness=args.sharpness
     )
