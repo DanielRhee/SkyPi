@@ -1,6 +1,7 @@
 import numpy as np
 
-def demosaic(raw, blackLevel=0, whiteBalance=None, colorMatrix=None, gamma=1.0):
+def demosaic(raw, blackLevel=256, whiteBalance=None, gamma=2.2, autoStretch=True):
+    # IMX477 uses BGGR pattern: B at [0,0], Gb at [0,1], Gr at [1,0], R at [1,1]
     if raw.ndim != 2:
         raise ValueError("Raw input must be 2D array")
 
@@ -8,38 +9,43 @@ def demosaic(raw, blackLevel=0, whiteBalance=None, colorMatrix=None, gamma=1.0):
         raw = raw.astype(np.uint16)
 
     height, width = raw.shape
-
     data = raw.astype(np.float32)
     data = np.clip(data - blackLevel, 0, None)
 
-    r = data[0::2, 0::2]
-    g1 = data[0::2, 1::2]
-    g2 = data[1::2, 0::2]
-    b = data[1::2, 1::2]
+    # BGGR pattern extraction
+    b = data[0::2, 0::2]
+    gb = data[0::2, 1::2]
+    gr = data[1::2, 0::2]
+    r = data[1::2, 1::2]
 
     rFull = bilinearUpsample(r, height, width)
-    g1Full = bilinearUpsample(g1, height, width)
-    g2Full = bilinearUpsample(g2, height, width)
-    g = (g1Full + g2Full) / 2
+    gFull = (bilinearUpsample(gb, height, width) + bilinearUpsample(gr, height, width)) / 2
     bFull = bilinearUpsample(b, height, width)
 
+    # Default white balance for daylight (IMX477 typical values)
     if whiteBalance is None:
-        whiteBalance = [1.0, 1.0, 1.0]
+        whiteBalance = [1.9, 1.0, 1.4]
     rFull *= whiteBalance[0]
-    g *= whiteBalance[1]
+    gFull *= whiteBalance[1]
     bFull *= whiteBalance[2]
 
-    rgb = np.stack([rFull, g, bFull], axis=-1)
+    rgb = np.stack([rFull, gFull, bFull], axis=-1)
 
-    if colorMatrix is not None:
-        rgbFlat = rgb.reshape(-1, 3)
-        rgb = (rgbFlat @ colorMatrix.T).reshape(height, width, 3)
+    # Auto-stretch to use full dynamic range
+    if autoStretch:
+        minVal = np.percentile(rgb, 1)
+        maxVal = np.percentile(rgb, 99)
+        rgb = (rgb - minVal) / (maxVal - minVal + 1e-6)
+        rgb = np.clip(rgb, 0, 1)
+    else:
+        rgb = rgb / (4095.0 - blackLevel)
+        rgb = np.clip(rgb, 0, 1)
 
+    # Apply gamma for display
     if gamma != 1.0:
-        maxVal = 4095.0
-        rgb = np.power(np.clip(rgb / maxVal, 0, 1), 1.0 / gamma) * maxVal
+        rgb = np.power(rgb, 1.0 / gamma)
 
-    return np.clip(rgb, 0, 4095).astype(np.uint16)
+    return (rgb * 255).astype(np.uint8)
 
 def bilinearUpsample(channel, outputHeight, outputWidth):
     inputHeight, inputWidth = channel.shape
@@ -74,7 +80,6 @@ if __name__ == "__main__":
     rawData = np.load(inputPath)
     rgb = demosaic(rawData)
 
-    rgb16 = (rgb.astype(np.float32) * (65535.0 / 4095.0)).astype(np.uint16)
-    img = Image.fromarray(rgb16, mode="RGB")
+    img = Image.fromarray(rgb, mode="RGB")
     img.save(outputPath)
     print("Saved")

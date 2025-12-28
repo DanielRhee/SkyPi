@@ -5,21 +5,20 @@ import numpy as np
 def unpackCsi12(packed, width, height, stride):
     # CSI-2 packed 12-bit: 2 pixels per 3 bytes, accounting for row stride
     bytesPerRow = (width * 3) // 2
-    unpacked = np.zeros((height, width), dtype=np.uint16)
 
-    for row in range(height):
-        rowStart = row * stride
-        rowData = packed[rowStart:rowStart + bytesPerRow].astype(np.uint16)
+    # Reshape to extract rows with stride, then trim to actual data
+    packed2d = packed.reshape(height, stride)[:, :bytesPerRow].astype(np.uint16)
 
-        byte0 = rowData[0::3]
-        byte1 = rowData[1::3]
-        byte2 = rowData[2::3]
+    byte0 = packed2d[:, 0::3]
+    byte1 = packed2d[:, 1::3]
+    byte2 = packed2d[:, 2::3]
 
-        pixel0 = byte0 | ((byte2 & 0x0F) << 8)
-        pixel1 = byte1 | ((byte2 & 0xF0) << 4)
+    pixel0 = byte0 | ((byte2 & 0x0F) << 8)
+    pixel1 = byte1 | ((byte2 & 0xF0) << 4)
 
-        unpacked[row, 0::2] = pixel0
-        unpacked[row, 1::2] = pixel1
+    unpacked = np.empty((height, width), dtype=np.uint16)
+    unpacked[:, 0::2] = pixel0
+    unpacked[:, 1::2] = pixel1
 
     return unpacked
 
