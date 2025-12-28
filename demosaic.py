@@ -1,5 +1,5 @@
-import cv2
 import numpy as np
+from scipy.ndimage import convolve
 
 def demosaic(raw, blackLevel=256, whiteBalance=None, gamma=2.2, bayerPattern="BGGR"):
     if raw.ndim != 2:
@@ -7,27 +7,50 @@ def demosaic(raw, blackLevel=256, whiteBalance=None, gamma=2.2, bayerPattern="BG
 
     data = raw.astype(np.float32)
     data = np.clip(data - blackLevel, 0, None)
+    data = data / (4095 - blackLevel)
 
-    maxVal = 4095 - blackLevel
-    data = (data / maxVal * 65535).astype(np.uint16)
+    height, width = data.shape
 
-    patterns = {
-        "BGGR": cv2.COLOR_BayerBG2RGB,
-        "RGGB": cv2.COLOR_BayerRG2RGB,
-        "GBRG": cv2.COLOR_BayerGB2RGB,
-        "GRBG": cv2.COLOR_BayerGR2RGB,
+    # Bayer pattern offsets: (r_row, r_col, b_row, b_col)
+    patternOffsets = {
+        "BGGR": (1, 1, 0, 0),
+        "RGGB": (0, 0, 1, 1),
+        "GBRG": (1, 0, 0, 1),
+        "GRBG": (0, 1, 1, 0),
     }
-    pattern = patterns.get(bayerPattern, cv2.COLOR_BayerBG2RGB)
+    rRow, rCol, bRow, bCol = patternOffsets.get(bayerPattern, (1, 1, 0, 0))
 
-    rgb = cv2.cvtColor(data, pattern)
+    # Create color channel masks
+    rMask = np.zeros((height, width), dtype=np.float32)
+    gMask = np.zeros((height, width), dtype=np.float32)
+    bMask = np.zeros((height, width), dtype=np.float32)
 
-    rgb = rgb.astype(np.float32) / 65535.0
+    rMask[rRow::2, rCol::2] = 1
+    bMask[bRow::2, bCol::2] = 1
+    gMask[1 - rRow::2, rCol::2] = 1
+    gMask[rRow::2, 1 - rCol::2] = 1
+
+    # Bilinear interpolation kernels
+    rbKernel = np.array([[1, 2, 1],
+                         [2, 4, 2],
+                         [1, 2, 1]], dtype=np.float32) / 4.0
+
+    gKernel = np.array([[0, 1, 0],
+                        [1, 4, 1],
+                        [0, 1, 0]], dtype=np.float32) / 4.0
+
+    # Interpolate each channel
+    r = convolve(data * rMask, rbKernel, mode='mirror')
+    g = convolve(data * gMask, gKernel, mode='mirror')
+    b = convolve(data * bMask, rbKernel, mode='mirror')
 
     if whiteBalance is None:
         whiteBalance = [1.9, 1.0, 1.4]
-    rgb[:, :, 0] *= whiteBalance[0]
-    rgb[:, :, 1] *= whiteBalance[1]
-    rgb[:, :, 2] *= whiteBalance[2]
+    r *= whiteBalance[0]
+    g *= whiteBalance[1]
+    b *= whiteBalance[2]
+
+    rgb = np.stack([r, g, b], axis=-1)
     rgb = np.clip(rgb, 0, 1)
 
     if gamma != 1.0:
