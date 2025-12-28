@@ -39,10 +39,14 @@ def demosaic(raw, blackLevel=256, whiteBalance=None, gamma=2.2, bayerPattern="BG
                         [1, 4, 1],
                         [0, 1, 0]], dtype=np.float32) / 4.0
 
-    # Interpolate each channel
-    r = convolve(data * rMask, rbKernel, mode='mirror')
-    g = convolve(data * gMask, gKernel, mode='mirror')
-    b = convolve(data * bMask, rbKernel, mode='mirror')
+    # Interpolate each channel with proper normalization for sparse data
+    rWeight = convolve(rMask, rbKernel, mode='mirror')
+    gWeight = convolve(gMask, gKernel, mode='mirror')
+    bWeight = convolve(bMask, rbKernel, mode='mirror')
+
+    r = convolve(data * rMask, rbKernel, mode='mirror') / np.maximum(rWeight, 1e-10)
+    g = convolve(data * gMask, gKernel, mode='mirror') / np.maximum(gWeight, 1e-10)
+    b = convolve(data * bMask, rbKernel, mode='mirror') / np.maximum(bWeight, 1e-10)
 
     if whiteBalance is None:
         whiteBalance = [1.9, 1.0, 1.4]

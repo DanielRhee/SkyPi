@@ -13,8 +13,8 @@ def unpackCsi12(packed, width, height, stride):
     byte1 = packed2d[:, 1::3]
     byte2 = packed2d[:, 2::3]
 
-    pixel0 = byte0 | ((byte2 & 0x0F) << 8)
-    pixel1 = byte1 | ((byte2 & 0xF0) << 4)
+    pixel0 = (byte0 << 4) | (byte2 & 0x0F)
+    pixel1 = (byte1 << 4) | ((byte2 >> 4) & 0x0F)
 
     unpacked = np.empty((height, width), dtype=np.uint16)
     unpacked[:, 0::2] = pixel0
